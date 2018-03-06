@@ -70,5 +70,15 @@ public class MyCpuCore extends CpuCore<GlobalData> {
     public void runProgram() {
         // Call advanceClock() in a loop until an error occurs or the HALT
         // instruction is executed.
+    	/*for(int i=0;i<10;i++) {
+    		if(GlobalData.is_halt)
+    			break;
+    		advanceClock();
+    	}*/
+    	while(true) {
+    		if(GlobalData.is_halt)
+    			break;
+    		advanceClock();
+    	}
     }
 }
