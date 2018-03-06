@@ -21,6 +21,7 @@ public class GlobalData implements IGlobals {
     public int program_counter = 0;
     public int[] register_file = new int[32];
     public boolean[] register_invalid = new boolean[32];
+    public static boolean is_halt=false;
 
     @Override
     public void reset() {
