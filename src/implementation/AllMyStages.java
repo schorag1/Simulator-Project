@@ -12,6 +12,7 @@ import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import voidtypes.VoidLatch;
 import baseclasses.CpuCore;
+import utilitytypes.Operand;
 
 /**
  * The AllMyStages class merely collects together all of the pipeline stage 
@@ -38,17 +39,23 @@ public class AllMyStages {
         @Override
         public String getStatus() {
             // Generate a string that helps you debug.
+        	System.out.println("Unable to get the status");
             return null;
         }
 
         @Override
         public void compute(VoidLatch input, FetchToDecode output) {
+        	System.out.println("Inside Fetch Stage");
             GlobalData globals = (GlobalData)core.getGlobalResources();
             int pc = globals.program_counter;
             // Fetch the instruction
             InstructionBase ins = globals.program.getInstructionAt(pc);
-            if (ins.isNull()) return;
-
+            if (ins.isNull()) {
+            	System.out.println("No instruction at this point of time\n\n");
+            	return;
+            }
+            System.out.println("Instruction is:"+ins+"\n\n");
+            //System.out.println("Program counter:"+pc);
             // Do something idempotent to compute the next program counter.
             
             // Don't forget branches, which MUST be resolved in the Decode
@@ -56,6 +63,7 @@ public class AllMyStages {
             // between stages.
             
             // Your code goes here...
+            globals.program_counter++;
             
             output.setInstruction(ins);
         }
@@ -79,6 +87,7 @@ public class AllMyStages {
             // for branch resolution and updating the program counter.
             // Don't forget to check for stall conditions, such as when
             // nextStageCanAcceptWork() returns false.
+        	
         }
     }
 
@@ -99,32 +108,17 @@ public class AllMyStages {
 
         @Override
         public void compute(FetchToDecode input, DecodeToExecute output) {
+        	System.out.println("Inside the Decode stage");
             InstructionBase ins = input.getInstruction();
-            
-            // You're going to want to do something like this:
-            
-            // VVVVV LOOK AT THIS VVVVV
-            ins = ins.duplicate();
-            // ^^^^^ LOOK AT THIS ^^^^^
-            
-            // The above will allow you to do things like look up register 
-            // values for operands in the instruction and set them but avoid 
-            // altering the input latch if you're in a stall condition.
-            // The point is that every time you enter this method, you want
-            // the instruction and other contents of the input latch to be
-            // in their original state, unaffected by whatever you did 
-            // in this method when there was a stall condition.
-            // By cloning the instruction, you can alter it however you
-            // want, and if this stage is stalled, the duplicate gets thrown
-            // away without affecting the original.  This helps with 
-            // idempotency.
-            
-            
             
             // These null instruction checks are mostly just to speed up
             // the simulation.  The Void types were created so that null
             // checks can be almost completely avoided.
-            if (ins.isNull()) return;
+            if (ins.isNull()) {
+            	System.out.println("No instruction at this point of time\n\n");
+            	return;
+            }
+            System.out.println("Instruction is:"+ins+"\n\n");
             
             GlobalData globals = (GlobalData)core.getGlobalResources();
             int[] regfile = globals.register_file;
@@ -132,8 +126,9 @@ public class AllMyStages {
             // Do what the decode stage does:
             // - Look up source operands
             // - Decode instruction
-            // - Resolve branches            
-
+            // - Resolve branches 
+            //Operand Destination = ins.getOper0();
+            //System.out.println("Destination is:"+Destination.getRegisterNumber());
             output.setInstruction(ins);
             // Set other data that's passed to the next stage.
         }
@@ -148,17 +143,22 @@ public class AllMyStages {
 
         @Override
         public void compute(DecodeToExecute input, ExecuteToMemory output) {
+        	System.out.println("Inside the Execute stage");
             InstructionBase ins = input.getInstruction();
-            if (ins.isNull()) return;
+            if (ins.isNull()) {
+            	System.out.println("No instruction at this point of time\n\n");
+            	return;
+            }
+            System.out.println("Instruction is:"+ins+"\n\n");
 
             int source1 = ins.getSrc1().getValue();
             int source2 = ins.getSrc2().getValue();
             int oper0 =   ins.getOper0().getValue();
-
             int result = MyALU.execute(ins.getOpcode(), source1, source2, oper0);
                         
             // Fill output with what passes to Memory stage...
             output.setInstruction(ins);
+            output.result_of_execute=result;
             // Set other data that's passed to the next stage.
         }
     }
@@ -172,12 +172,25 @@ public class AllMyStages {
 
         @Override
         public void compute(ExecuteToMemory input, MemoryToWriteback output) {
+        	System.out.println("Inside the Memory Stage");
             InstructionBase ins = input.getInstruction();
-            if (ins.isNull()) return;
-
+            if (ins.isNull()) {
+            	System.out.println("No instruction at this point of time\n\n");
+            	return;
+            }
+            System.out.println("Instruction is:"+ins+"\n\n");
             // Access memory...
-
+            switch(input.getInstruction().getOpcode())
+            {
+            	case LOAD:
+            		break;
+            	case STORE:
+            		break;
+            	default:
+            		break;
+            }
             output.setInstruction(ins);
+            output.result_of_memory = input.result_of_execute;
             // Set other data that's passed to the next stage.
         }
     }
@@ -191,15 +204,26 @@ public class AllMyStages {
 
         @Override
         public void compute(MemoryToWriteback input, VoidLatch output) {
+        	System.out.println("Inside the Writeback stage");
             InstructionBase ins = input.getInstruction();
-            if (ins.isNull()) return;
-
+            if (ins.isNull()) { 
+            	System.out.println("No instruction at this point of time\n\n");
+            	return;
+            }
+            System.out.println("Instruction is:"+ins+"\n\n");
+            //GlobalData globals = new GlobalData();
             // Write back result to register file
             
-            
+            if(EnumOpcode.needsWriteback(ins.getOpcode())) {
+            	//System.out.println("Should do something in the writeback stage");
+            	ins.getOper0().setValue(input.result_of_memory);
+            	//System.out.println("Register to which the value to be written is:"+ins.getOper0().getRegisterNumber());
+            	//System.out.println("Value written to register is "+input.result_of_memory+"\n");
+            }
             
             if (input.getInstruction().getOpcode() == EnumOpcode.HALT) {
-                // Stop the simulation
+            	System.out.println("HALT encountered");
+                GlobalData.is_halt = true;
             }
         }
     }
