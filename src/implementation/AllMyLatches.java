@@ -33,10 +33,12 @@ public class AllMyLatches {
     public static class ExecuteToMemory extends LatchBase {
         // LatchBase already includes a field for the instruction.
         // What do you need here?
+    	int result_of_execute;
     }
 
     public static class MemoryToWriteback extends LatchBase {
         // LatchBase already includes a field for the instruction.
         // What do you need here?
+    	int result_of_memory;
     }    
 }
